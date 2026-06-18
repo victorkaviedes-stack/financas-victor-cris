@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Finanças de Victor e Cris</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0f1117; --surface: #181c27; --surface2: #1e2333; --border: #2a3047;
+    --gold: #c9a84c; --gold-light: #e4c97e; --gold-dim: rgba(201,168,76,0.15);
+    --green: #3ecf8e; --green-dim: rgba(62,207,142,0.12);
+    --red: #f46f6f; --red-dim: rgba(244,111,111,0.12);
+    --blue: #4cc9f0; --blue-dim: rgba(76,201,240,0.12);
+    --text: #e8eaf0; --text-muted: #7a849c; --text-dim: #4a526a;
+    --radius: 12px; --radius-sm: 8px;
+  }
+  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; padding-bottom: 60px; }
+
+  header {
+    background: linear-gradient(135deg, #0f1117 0%, #181c27 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 20px; position: sticky; top: 0; z-index: 100;
+    display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+  }
+  .app-name { font-family: 'Syne', sans-serif; font-size: 1.1rem; font-weight: 700; }
+  .app-name span { color: var(--gold); }
+  .header-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .sync-status {
+    display: flex; align-items: center; gap: 6px;
+    font-size: .72rem; font-weight: 600; padding: 5px 12px; border-radius: 20px;
+    border: 1px solid var(--border); background: var(--surface2); color: var(--text-muted); transition: all .3s;
+  }
+  .sync-status .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-dim); flex-shrink: 0; }
+  .sync-status.synced { border-color: var(--green); color: var(--green); }
+  .sync-status.synced .dot { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .sync-status.syncing { border-color: var(--gold); color: var(--gold); }
+  .sync-status.syncing .dot { background: var(--gold); animation: pulse 1s infinite; }
+  .sync-status.error { border-color: var(--red); color: var(--red); }
+  .sync-status.error .dot { background: var(--red); }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+  .connect-banner {
+    margin: 16px; padding: 18px 20px;
+    background: var(--surface); border: 1px solid var(--gold); border-radius: var(--radius);
+    display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap;
+  }
+  .connect-banner.hidden { display: none; }
+  .connect-info h3 { font-family: 'Syne', sans-serif; font-size: .95rem; font-weight: 700; color: var(--gold); margin-bottom: 4px; }
+  .connect-info p { font-size: .78rem; color: var(--text-muted); }
+  .btn-connect {
+    display: flex; align-items: center; gap: 8px;
+    font-family: 'DM Sans', sans-serif; font-size: .82rem; font-weight: 700;
+    padding: 10px 20px; border-radius: var(--radius-sm);
+    background: var(--gold); color: #0f1117; border: none; cursor: pointer; transition: background .18s; white-space: nowrap;
+  }
+  .btn-connect:hover { background: var(--gold-light); }
+
+  .sheet-config { margin: 0 16px 10px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .sheet-config.hidden { display: none; }
+  .sheet-config input {
+    flex: 1; min-width: 200px; background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 8px 12px; color: var(--text);
+    font-size: .8rem; outline: none; font-family: 'DM Sans', sans-serif; transition: border-color .18s;
+  }
+  .sheet-config input:focus { border-color: var(--gold); }
+  .sheet-config input::placeholder { color: var(--text-dim); }
+
+  .month-bar { display: flex; gap: 8px; padding: 14px 16px 4px; overflow-x: auto; scrollbar-width: none; }
+  .month-bar::-webkit-scrollbar { display: none; }
+  .month-pill {
+    flex-shrink: 0; font-size: .75rem; font-weight: 500; padding: 6px 14px; border-radius: 20px;
+    border: 1px solid var(--border); background: var(--surface); color: var(--text-muted);
+    cursor: pointer; transition: all .18s; white-space: nowrap;
+  }
+  .month-pill.active { background: var(--gold); border-color: var(--gold); color: #0f1117; font-weight: 700; }
+  .month-pill:hover:not(.active) { border-color: var(--gold); color: var(--gold); }
+
+  .summary { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; padding: 14px 16px 0; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 12px; text-align: center; }
+  .card.balance { border-color: var(--gold); background: var(--gold-dim); }
+  .card-label { font-size: .65rem; text-transform: uppercase; letter-spacing: .08em; color: var(--text-muted); font-weight: 600; margin-bottom: 6px; }
+  .card-value { font-family: 'Syne', sans-serif; font-size: 1rem; font-weight: 700; line-height: 1; }
+  .card-value.green { color: var(--green); } .card-value.red { color: var(--red); } .card-value.gold { color: var(--gold-light); }
+
+  .budget-bar-wrap { padding: 14px 16px 0; }
+  .budget-bar-label { display: flex; justify-content: space-between; font-size: .72rem; color: var(--text-muted); margin-bottom: 6px; }
+  .budget-bar-track { height: 6px; background: var(--surface2); border-radius: 4px; overflow: hidden; }
+  .budget-bar-fill { height: 100%; border-radius: 4px; background: linear-gradient(90deg, var(--green), var(--gold)); transition: width .6s cubic-bezier(.4,0,.2,1); }
+  .budget-bar-fill.danger { background: linear-gradient(90deg, var(--gold), var(--red)); }
+
+  .section-title { font-family: 'Syne', sans-serif; font-size: .7rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--text-dim); padding: 20px 16px 8px; }
+  .cat-buttons { display: flex; gap: 8px; padding: 0 16px; overflow-x: auto; scrollbar-width: none; }
+  .cat-buttons::-webkit-scrollbar { display: none; }
+  .cat-btn {
+    flex-shrink: 0; display: flex; align-items: center; gap: 6px;
+    font-size: .75rem; font-weight: 600; padding: 7px 14px; border-radius: 20px;
+    border: 1px solid var(--border); background: var(--surface); color: var(--text-muted);
+    cursor: pointer; transition: all .18s; white-space: nowrap;
+  }
+  .cat-btn .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .cat-btn.active, .cat-btn:hover { border-color: transparent; color: #0f1117; font-weight: 700; }
+
+  .action-bar { display: flex; gap: 10px; padding: 14px 16px 0; flex-wrap: wrap; }
+  .btn {
+    display: flex; align-items: center; gap: 6px;
+    font-family: 'DM Sans', sans-serif; font-size: .8rem; font-weight: 600;
+    padding: 9px 18px; border-radius: var(--radius-sm); border: 1px solid transparent; cursor: pointer; transition: all .18s;
+  }
+  .btn-primary { background: var(--gold); color: #0f1117; border-color: var(--gold); }
+  .btn-primary:hover { background: var(--gold-light); }
+  .btn-outline { background: transparent; color: var(--text-muted); border-color: var(--border); }
+  .btn-outline:hover { border-color: var(--gold); color: var(--gold); }
+  .btn-blue { background: var(--blue-dim); color: var(--blue); border-color: var(--blue); }
+  .btn-blue:hover { background: var(--blue); color: #0f1117; }
+
+  .table-wrap { padding: 10px 16px 0; overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: .82rem; min-width: 520px; }
+  thead th {
+    font-family: 'Syne', sans-serif; font-size: .65rem; font-weight: 700; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--text-dim); padding: 8px 10px; text-align: left;
+    background: var(--surface); border-bottom: 1px solid var(--border);
+  }
+  tbody tr { border-bottom: 1px solid var(--border); transition: background .15s; }
+  tbody tr:hover { background: var(--surface2); }
+  td { padding: 10px; color: var(--text); vertical-align: middle; }
+  td input, td select {
+    width: 100%; background: transparent; border: none; color: var(--text);
+    font-family: 'DM Sans', sans-serif; font-size: .82rem; outline: none;
+    cursor: pointer; padding: 3px 4px; border-radius: 4px; transition: background .15s;
+  }
+  td input:focus, td select:focus { background: var(--surface2); border: 1px solid var(--gold); cursor: text; }
+  td select option { background: var(--surface); color: var(--text); }
+  .tag { display: inline-block; font-size: .65rem; font-weight: 700; padding: 3px 10px; border-radius: 12px; text-transform: uppercase; letter-spacing: .06em; }
+  .tag.receita { background: var(--green-dim); color: var(--green); border: 1px solid var(--green); }
+  .tag.gasto { background: var(--red-dim); color: var(--red); border: 1px solid var(--red); }
+  td.amount { font-family: 'Syne', sans-serif; font-weight: 600; font-size: .9rem; }
+  td.amount input { font-family: 'Syne', sans-serif; font-weight: 600; font-size: .9rem; }
+  td.amount.receita input { color: var(--green); }
+  td.amount.gasto input { color: var(--red); }
+  .cat-chip { display: inline-flex; align-items: center; gap: 5px; font-size: .7rem; font-weight: 600; padding: 3px 9px; border-radius: 10px; white-space: nowrap; }
+  .cat-chip .dot { width: 6px; height: 6px; border-radius: 50%; }
+  .del-btn { background: none; border: none; color: var(--text-dim); cursor: pointer; font-size: 1rem; padding: 4px 6px; border-radius: 6px; transition: all .15s; line-height: 1; }
+  .del-btn:hover { color: var(--red); background: var(--red-dim); }
+  .empty-state { text-align: center; padding: 40px 20px; color: var(--text-dim); font-size: .85rem; display: none; }
+  .empty-state.show { display: block; }
+  .empty-state .icon { font-size: 2rem; margin-bottom: 10px; }
+
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(10,12,18,.85); backdrop-filter: blur(4px); z-index: 200; align-items: center; justify-content: center; padding: 20px; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 28px 24px; width: 100%; max-width: 400px; animation: slideUp .25s ease; }
+  @keyframes slideUp { from{transform:translateY(20px);opacity:0} to{transform:translateY(0);opacity:1} }
+  .modal h3 { font-family: 'Syne', sans-serif; font-size: 1.1rem; font-weight: 700; margin-bottom: 20px; }
+  .form-group { margin-bottom: 14px; }
+  .form-group label { display: block; font-size: .72rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .07em; margin-bottom: 6px; }
+  .form-group input, .form-group select { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px; color: var(--text); font-family: 'DM Sans', sans-serif; font-size: .88rem; outline: none; transition: border-color .18s; }
+  .form-group input:focus, .form-group select:focus { border-color: var(--gold); }
+  .form-group select option { background: var(--surface); }
+  .modal-actions { display: flex; gap: 10px; margin-top: 20px; }
+  .modal-actions .btn { flex: 1; justify-content: center; }
+
+  .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(60px); background: var(--surface2); border: 1px solid var(--border); border-radius: 24px; padding: 10px 20px; font-size: .82rem; font-weight: 500; color: var(--text); z-index: 999; transition: transform .3s, opacity .3s; opacity: 0; white-space: nowrap; pointer-events: none; }
+  .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+  .toast.success { border-color: var(--green); color: var(--green); }
+  .toast.error { border-color: var(--red); color: var(--red); }
+  .toast.info { border-color: var(--blue); color: var(--blue); }
+
+  .config-steps { margin: 10px 0 16px; }
+  .config-step { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 12px; }
+  .step-num { width: 22px; height: 22px; border-radius: 50%; background: var(--gold); color: #0f1117; font-size: .7rem; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 2px; }
+  .step-text { font-size: .78rem; color: var(--text-muted); line-height: 1.6; }
+  .step-text a { color: var(--gold); text-decoration: none; }
+  .step-text a:hover { text-decoration: underline; }
+  .step-text code { background: var(--bg); padding: 1px 6px; border-radius: 4px; font-family: monospace; font-size: .75rem; color: var(--text); }
+  .step-text strong { color: var(--text); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="app-name">💰 Finanças de <span>Victor & Cris</span></div>
+  <div class="header-right">
+    <div class="sync-status" id="syncStatus"><span class="dot"></span><span id="syncLabel">Desconectado</span></div>
+    <button class="btn btn-outline" style="padding:5px 12px;font-size:.72rem" onclick="openConfigModal()">⚙️ Config</button>
+  </div>
+</header>
+
+<div class="connect-banner" id="connectBanner">
+  <div class="connect-info">
+    <h3>🔗 Conectar ao Google Sheets</h3>
+    <p>Faça login para sincronizar em tempo real com sua planilha na nuvem.</p>
+  </div>
+  <button class="btn-connect" onclick="handleAuthClick()">🔐 Entrar com Google</button>
+</div>
+
+<div class="sheet-config hidden" id="sheetConfig">
+  <input type="text" id="sheetIdInput" placeholder="Cole o ID ou URL da planilha Google Sheets aqui" />
+  <button class="btn btn-blue" onclick="setSheetId()">✔ Usar esta planilha</button>
+  <button class="btn btn-outline" onclick="createNewSheet()">＋ Criar nova planilha</button>
+</div>
+
+<div class="month-bar" id="monthBar"></div>
+
+<div class="summary">
+  <div class="card"><div class="card-label">Receitas</div><div class="card-value green" id="totalReceita">R$ 0</div></div>
+  <div class="card"><div class="card-label">Gastos</div><div class="card-value red" id="totalGasto">R$ 0</div></div>
+  <div class="card balance"><div class="card-label">Saldo</div><div class="card-value gold" id="totalSaldo">R$ 0</div></div>
+</div>
+
+<div class="budget-bar-wrap">
+  <div class="budget-bar-label"><span>Orçamento utilizado</span><span id="budgetPct">0%</span></div>
+  <div class="budget-bar-track"><div class="budget-bar-fill" id="budgetFill" style="width:0%"></div></div>
+</div>
+
+<div class="section-title">Filtrar por categoria</div>
+<div class="cat-buttons" id="catButtons"></div>
+
+<div class="action-bar">
+  <button class="btn btn-primary" onclick="openModal()">＋ Adicionar lançamento</button>
+  <button class="btn btn-outline" onclick="manualSync()">🔄 Sincronizar agora</button>
+  <button class="btn btn-outline" onclick="exportCSV()">📄 Exportar CSV</button>
+</div>
+
+<div class="section-title">Lançamentos — <span id="monthLabel" style="color:var(--gold)"></span></div>
+<div class="table-wrap">
+  <table>
+    <thead><tr><th>Data</th><th>Descrição</th><th>Categoria</th><th>Tipo</th><th>Valor</th><th></th></tr></thead>
+    <tbody id="lancBody"></tbody>
+  </table>
+  <div class="empty-state" id="emptyState"><div class="icon">📋</div>Nenhum lançamento encontrado.</div>
+</div>
+
+<!-- ADD/EDIT MODAL -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <h3 id="modalTitle">Novo Lançamento</h3>
+    <div class="form-group"><label>Data</label><input type="date" id="fData"></div>
+    <div class="form-group"><label>Descrição</label><input type="text" id="fDesc" placeholder="Ex: Supermercado, Salário..."></div>
+    <div class="form-group"><label>Tipo</label>
+      <select id="fTipo"><option value="receita">💚 Receita</option><option value="gasto">🔴 Gasto</option></select>
+    </div>
+    <div class="form-group"><label>Categoria</label><select id="fCat"></select></div>
+    <div class="form-group"><label>Valor (R$)</label><input type="number" id="fValor" placeholder="0,00" min="0" step="0.01"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveEntry()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- CONFIG MODAL -->
+<div class="modal-overlay" id="configModal">
+  <div class="modal" style="max-width:500px;max-height:90vh;overflow-y:auto">
+    <h3>⚙️ Configuração Google Sheets</h3>
+    <div class="config-steps">
+      <div class="config-step"><div class="step-num">1</div>
+        <div class="step-text">Acesse <a href="https://console.cloud.google.com" target="_blank">console.cloud.google.com</a> → crie um projeto (ex: <code>financas-vc</code>).</div>
+      </div>
+      <div class="config-step"><div class="step-num">2</div>
+        <div class="step-text">Vá em <strong>APIs &amp; Services → Library</strong> e ative:<br><code>Google Sheets API</code> e <code>Google Drive API</code>.</div>
+      </div>
+      <div class="config-step"><div class="step-num">3</div>
+        <div class="step-text">Vá em <strong>APIs &amp; Services → OAuth consent screen</strong> → escolha <strong>External</strong> → preencha o nome do app → salve.</div>
+      </div>
+      <div class="config-step"><div class="step-num">4</div>
+        <div class="step-text">Vá em <strong>Credentials → Create Credentials → OAuth Client ID</strong>. Tipo: <code>Web application</code>.<br>
+        Em <strong>Authorized JavaScript Origins</strong> adicione a URL onde este arquivo está (ex: <code>http://localhost</code> ou <code>https://seusite.com</code>).</div>
+      </div>
+      <div class="config-step"><div class="step-num">5</div>
+        <div class="step-text">Copie o <strong>Client ID</strong> gerado e cole abaixo. Salve e clique em <strong>Entrar com Google</strong> no topo.</div>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Google OAuth Client ID</label>
+      <input type="text" id="clientIdInput" placeholder="xxxxxxxxxxxx.apps.googleusercontent.com">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeConfigModal()">Fechar</button>
+      <button class="btn btn-primary" onclick="saveClientId()">💾 Salvar Client ID</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ===== CONFIG =====
+let CLIENT_ID = localStorage.getItem('vc_client_id') || '';
+const SCOPES = 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file';
+const MONTHS = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+const YEAR = 2026;
+const CATEGORIES = [
+  {id:'alimentacao',label:'Alimentação',color:'#f4a261',emoji:'🍽️'},
+  {id:'moradia',label:'Moradia',color:'#e9c46a',emoji:'🏠'},
+  {id:'transporte',label:'Transporte',color:'#4cc9f0',emoji:'🚗'},
+  {id:'saude',label:'Saúde',color:'#3ecf8e',emoji:'❤️'},
+  {id:'educacao',label:'Educação',color:'#c9a84c',emoji:'📚'},
+  {id:'lazer',label:'Lazer',color:'#a78bfa',emoji:'🎵'},
+  {id:'vestuario',label:'Vestuário',color:'#f472b6',emoji:'👗'},
+  {id:'salario',label:'Salário',color:'#3ecf8e',emoji:'💼'},
+  {id:'freelance',label:'Freelance',color:'#c9a84c',emoji:'🎹'},
+  {id:'outros',label:'Outros',color:'#7a849c',emoji:'📌'},
+];
+const catMap = Object.fromEntries(CATEGORIES.map(c=>[c.id,c]));
+
+// ===== STATE =====
+let currentMonth = new Date().getMonth();
+let activeFilter = 'all';
+let localData = loadLocal();
+let tokenClient = null;
+let gapiReady = false;
+let isAuthenticated = false;
+let sheetId = localStorage.getItem('vc_sheet_id') || '';
+let syncTimeout = null;
+let editingId = null;
+
+function loadLocal(){try{return JSON.parse(localStorage.getItem('vc_finance')||'{}')}catch{return{}}}
+function saveLocal(){localStorage.setItem('vc_finance',JSON.stringify(localData))}
+function getMonthKey(m){return`${YEAR}-${String(m+1).padStart(2,'0')}`}
+function getEntries(m){return(localData[getMonthKey(m)]||[]).filter(e=>e&&e.id)}
+function setEntries(m,arr){localData[getMonthKey(m)]=arr;saveLocal()}
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
+
+// ===== GAPI =====
+function gapiLoaded(){
+  gapi.load('client',async()=>{
+    await gapi.client.init({});
+    await gapi.client.load('https://sheets.googleapis.com/$discovery/rest?version=v4');
+    gapiReady=true;
+    tryRestoreSession();
+  });
+}
+
+function tryRestoreSession(){
+  const t=sessionStorage.getItem('vc_token');
+  if(t&&CLIENT_ID){
+    gapi.client.setToken({access_token:t});
+    isAuthenticated=true;
+    document.getElementById('connectBanner').classList.add('hidden');
+    document.getElementById('sheetConfig').classList.remove('hidden');
+    document.getElementById('sheetIdInput').value=sheetId;
+    setSyncStatus('synced','Conectado');
+    if(sheetId)loadFromSheet();
+  }
+}
+
+function handleAuthClick(){
+  if(!CLIENT_ID){openConfigModal();showToast('Configure o Client ID primeiro (⚙️)','error');return;}
+  tokenClient=google.accounts.oauth2.initTokenClient({
+    client_id:CLIENT_ID,scope:SCOPES,
+    callback:async(resp)=>{
+      if(resp.error){setSyncStatus('error','Erro');showToast('Erro: '+resp.error,'error');return;}
+      isAuthenticated=true;
+      const tk=gapi.client.getToken();
+      if(tk)sessionStorage.setItem('vc_token',tk.access_token);
+      setSyncStatus('synced','Conectado');
+      document.getElementById('connectBanner').classList.add('hidden');
+      document.getElementById('sheetConfig').classList.remove('hidden');
+      document.getElementById('sheetIdInput').value=sheetId;
+      showToast('✅ Conectado ao Google!','success');
+      if(sheetId)await loadFromSheet();
+      else showToast('Cole o ID da planilha ou crie uma nova','info');
+    }
+  });
+  tokenClient.requestAccessToken({prompt:'consent'});
+}
+
+async function loadFromSheet(){
+  if(!isAuthenticated||!sheetId)return;
+  setSyncStatus('syncing','Carregando...');
+  try{
+    const tab=`${MONTHS[currentMonth]} ${YEAR}`;
+    const res=await gapi.client.sheets.spreadsheets.values.get({spreadsheetId:sheetId,range:`'${tab}'!A2:F1000`});
+    const rows=res.result.values||[];
+    const entries=rows.filter(r=>r&&r.length>=5).map(r=>({
+      id:r[5]||uid(),date:r[0]||'',desc:r[1]||'',cat:r[2]||'outros',tipo:r[3]||'gasto',
+      valor:parseFloat((r[4]||'0').replace(',','.'))||0
+    })).filter(e=>e.date&&e.desc);
+    setEntries(currentMonth,entries);
+    render();
+    setSyncStatus('synced','Sincronizado ✓');
+    showToast(`📥 ${entries.length} lançamentos carregados`,'success');
+  }catch(err){
+    const code=err.status||(err.result&&err.result.error&&err.result.error.code);
+    if(code===400||code===404){await ensureSheetTab();setSyncStatus('synced','Aba criada');}
+    else{setSyncStatus('error','Erro');showToast('Erro: '+(err.result?.error?.message||String(err)),'error');}
+  }
+}
+
+async function ensureSheetTab(){
+  if(!sheetId)return;
+  const tab=`${MONTHS[currentMonth]} ${YEAR}`;
+  try{
+    const meta=await gapi.client.sheets.spreadsheets.get({spreadsheetId:sheetId});
+    const exists=meta.result.sheets.some(s=>s.properties.title===tab);
+    if(!exists){
+      await gapi.client.sheets.spreadsheets.batchUpdate({spreadsheetId:sheetId,resource:{requests:[{addSheet:{properties:{title:tab}}}]}});
+    }
+    await gapi.client.sheets.spreadsheets.values.update({
+      spreadsheetId:sheetId,range:`'${tab}'!A1:F1`,valueInputOption:'RAW',
+      resource:{values:[['Data','Descrição','Categoria','Tipo','Valor','ID']]}
+    });
+  }catch(e){console.warn('ensureTab',e);}
+}
+
+async function writeEntriesToSheet(){
+  if(!isAuthenticated||!sheetId)return;
+  setSyncStatus('syncing','Salvando...');
+  try{
+    await ensureSheetTab();
+    const tab=`${MONTHS[currentMonth]} ${YEAR}`;
+    const entries=getEntries(currentMonth);
+    const rows=entries.map(e=>[e.date,e.desc,e.cat,e.tipo,e.valor.toFixed(2),e.id]);
+    await gapi.client.sheets.spreadsheets.values.clear({spreadsheetId:sheetId,range:`'${tab}'!A2:F1000`});
+    if(rows.length>0){
+      await gapi.client.sheets.spreadsheets.values.update({
+        spreadsheetId:sheetId,range:`'${tab}'!A2`,valueInputOption:'RAW',resource:{values:rows}
+      });
+    }
+    setSyncStatus('synced',`Salvo às ${new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}`);
+  }catch(err){
+    setSyncStatus('error','Erro ao salvar');
+    showToast('Erro ao salvar na planilha','error');
+  }
+}
+
+function queueSync(){
+  clearTimeout(syncTimeout);
+  setSyncStatus('syncing','Aguardando...');
+  syncTimeout=setTimeout(()=>writeEntriesToSheet(),1500);
+}
+
+async function manualSync(){
+  if(!isAuthenticated){showToast('Faça login primeiro','error');return;}
+  if(!sheetId){showToast('Configure o ID da planilha','error');return;}
+  await loadFromSheet();
+}
+
+async function createNewSheet(){
+  if(!isAuthenticated){showToast('Faça login primeiro','error');return;}
+  setSyncStatus('syncing','Criando planilha...');
+  try{
+    const res=await gapi.client.sheets.spreadsheets.create({
+      resource:{
+        properties:{title:`Finanças Victor & Cris ${YEAR}`},
+        sheets:MONTHS.map(m=>({properties:{title:`${m} ${YEAR}`}}))
+      }
+    });
+    sheetId=res.result.spreadsheetId;
+    localStorage.setItem('vc_sheet_id',sheetId);
+    document.getElementById('sheetIdInput').value=sheetId;
+    // Write headers
+    const requests=MONTHS.map((m,i)=>({
+      updateCells:{
+        range:{sheetId:res.result.sheets[i].properties.sheetId,startRowIndex:0,endRowIndex:1,startColumnIndex:0,endColumnIndex:6},
+        rows:[{values:['Data','Descrição','Categoria','Tipo','Valor','ID'].map(v=>({userEnteredValue:{stringValue:v}}))}],
+        fields:'userEnteredValue'
+      }
+    }));
+    await gapi.client.sheets.spreadsheets.batchUpdate({spreadsheetId:sheetId,resource:{requests}});
+    setSyncStatus('synced','Planilha criada!');
+    showToast('✅ Planilha criada! Abrindo no Google...','success');
+    setTimeout(()=>window.open(`https://docs.google.com/spreadsheets/d/${sheetId}`,'_blank'),800);
+    await writeEntriesToSheet();
+  }catch(err){
+    setSyncStatus('error','Erro');
+    showToast('Erro: '+(err.result?.error?.message||String(err)),'error');
+  }
+}
+
+async function setSheetId(){
+  const val=document.getElementById('sheetIdInput').value.trim();
+  if(!val){showToast('Cole o ID ou URL da planilha','error');return;}
+  const match=val.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
+  sheetId=match?match[1]:val;
+  localStorage.setItem('vc_sheet_id',sheetId);
+  document.getElementById('sheetIdInput').value=sheetId;
+  showToast('🔗 Planilha configurada!','success');
+  if(isAuthenticated)await loadFromSheet();
+}
+
+// ===== UI =====
+function setSyncStatus(state,label){
+  document.getElementById('syncStatus').className='sync-status '+state;
+  document.getElementById('syncLabel').textContent=label;
+}
+
+function init(){
+  buildMonthBar();buildCatButtons();buildCatSelect();
+  document.getElementById('sheetIdInput').value=sheetId;
+  if(!localStorage.getItem('vc_finance')||Object.keys(localData).length===0)seedDemo();
+  render();
+  document.getElementById('monthLabel').textContent=`${MONTHS[currentMonth]} ${YEAR}`;
+}
+
+function seedDemo(){
+  const p=`${YEAR}-${String(currentMonth+1).padStart(2,'0')}`;
+  const k=getMonthKey(currentMonth);
+  localData[k]=[
+    {id:uid(),date:`${p}-01`,desc:'Salário Victor',cat:'salario',tipo:'receita',valor:4500},
+    {id:uid(),date:`${p}-01`,desc:'Salário Cris',cat:'salario',tipo:'receita',valor:3200},
+    {id:uid(),date:`${p}-05`,desc:'Aluguel',cat:'moradia',tipo:'gasto',valor:1800},
+    {id:uid(),date:`${p}-08`,desc:'Supermercado',cat:'alimentacao',tipo:'gasto',valor:650},
+    {id:uid(),date:`${p}-10`,desc:'Freelance teclado',cat:'freelance',tipo:'receita',valor:800},
+    {id:uid(),date:`${p}-12`,desc:'Combustível',cat:'transporte',tipo:'gasto',valor:220},
+    {id:uid(),date:`${p}-15`,desc:'Farmácia',cat:'saude',tipo:'gasto',valor:130},
+    {id:uid(),date:`${p}-18`,desc:'Spotify/Netflix',cat:'lazer',tipo:'gasto',valor:75},
+  ];
+  saveLocal();
+}
+
+function buildMonthBar(){
+  const bar=document.getElementById('monthBar');bar.innerHTML='';
+  MONTHS.forEach((m,i)=>{
+    const p=document.createElement('button');
+    p.className='month-pill'+(i===currentMonth?' active':'');p.textContent=m;
+    p.onclick=()=>{
+      currentMonth=i;
+      document.querySelectorAll('.month-pill').forEach((x,j)=>x.classList.toggle('active',j===i));
+      document.getElementById('monthLabel').textContent=`${MONTHS[i]} ${YEAR}`;
+      activeFilter='all';updateCatButtons();render();
+      if(isAuthenticated&&sheetId)loadFromSheet();
+    };
+    bar.appendChild(p);
+  });
+}
+
+function buildCatButtons(){
+  const wrap=document.getElementById('catButtons');wrap.innerHTML='';
+  const all=document.createElement('button');
+  all.className='cat-btn active';all.dataset.cat='all';
+  all.innerHTML=`<span class="dot" style="background:#c9a84c"></span>Todos`;
+  all.style.background='#c9a84c';all.style.borderColor='#c9a84c';
+  all.onclick=()=>{activeFilter='all';updateCatButtons();render();};
+  wrap.appendChild(all);
+  CATEGORIES.forEach(c=>{
+    const btn=document.createElement('button');
+    btn.className='cat-btn';btn.dataset.cat=c.id;
+    btn.innerHTML=`<span class="dot" style="background:${c.color}"></span>${c.emoji} ${c.label}`;
+    btn.onclick=()=>{activeFilter=c.id;updateCatButtons();render();};
+    wrap.appendChild(btn);
+  });
+}
+
+function updateCatButtons(){
+  document.querySelectorAll('.cat-btn').forEach(btn=>{
+    const a=btn.dataset.cat===activeFilter;btn.classList.toggle('active',a);
+    if(a){const c=btn.dataset.cat==='all'?{color:'#c9a84c'}:catMap[btn.dataset.cat];
+      btn.style.background=c.color;btn.style.borderColor=c.color;btn.style.color='#0f1117';
+    }else{btn.style.background='';btn.style.borderColor='';btn.style.color='';}
+  });
+}
+
+function buildCatSelect(){
+  const sel=document.getElementById('fCat');sel.innerHTML='';
+  CATEGORIES.forEach(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=`${c.emoji} ${c.label}`;sel.appendChild(o);});
+}
+
+function render(){
+  const entries=getEntries(currentMonth);
+  const filtered=activeFilter==='all'?entries:entries.filter(e=>e.cat===activeFilter);
+  const receita=entries.filter(e=>e.tipo==='receita').reduce((s,e)=>s+e.valor,0);
+  const gasto=entries.filter(e=>e.tipo==='gasto').reduce((s,e)=>s+e.valor,0);
+  const saldo=receita-gasto;
+  const pct=receita>0?Math.min(100,Math.round(gasto/receita*100)):0;
+  document.getElementById('totalReceita').textContent=fmt(receita);
+  document.getElementById('totalGasto').textContent=fmt(gasto);
+  document.getElementById('totalSaldo').textContent=fmt(saldo);
+  document.getElementById('totalSaldo').className='card-value '+(saldo>=0?'gold':'red');
+  document.getElementById('budgetPct').textContent=pct+'%';
+  const fill=document.getElementById('budgetFill');
+  fill.style.width=pct+'%';fill.classList.toggle('danger',pct>75);
+  const tbody=document.getElementById('lancBody');tbody.innerHTML='';
+  filtered.sort((a,b)=>b.date.localeCompare(a.date)).forEach(e=>tbody.appendChild(buildRow(e)));
+  document.getElementById('emptyState').classList.toggle('show',filtered.length===0);
+}
+
+function buildRow(e){
+  const tr=document.createElement('tr');tr.dataset.id=e.id;
+  const cat=catMap[e.cat]||catMap['outros'];
+  tr.innerHTML=`
+    <td><input type="date" value="${e.date}" onchange="updateField('${e.id}','date',this.value)"></td>
+    <td><input type="text" value="${esc(e.desc)}" onchange="updateField('${e.id}','desc',this.value)"></td>
+    <td><span class="cat-chip" style="background:${cat.color}22;color:${cat.color};border:1px solid ${cat.color}55">
+      <span class="dot" style="background:${cat.color}"></span>${cat.emoji} ${cat.label}</span></td>
+    <td><span class="tag ${e.tipo}">${e.tipo==='receita'?'Receita':'Gasto'}</span></td>
+    <td class="amount ${e.tipo}"><input type="number" value="${e.valor.toFixed(2)}" min="0" step="0.01"
+      onchange="updateField('${e.id}','valor',parseFloat(this.value)||0)"></td>
+    <td><button class="del-btn" onclick="deleteEntry('${e.id}')">✕</button></td>`;
+  return tr;
+}
+
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');}
+function fmt(v){return'R$ '+Math.abs(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});}
+
+function updateField(id,field,value){
+  const entries=getEntries(currentMonth);
+  const e=entries.find(x=>x.id===id);if(!e)return;
+  e[field]=value;setEntries(currentMonth,entries);render();queueSync();
+}
+
+function deleteEntry(id){
+  setEntries(currentMonth,getEntries(currentMonth).filter(e=>e.id!==id));
+  render();queueSync();showToast('Lançamento removido','error');
+}
+
+function openModal(id=null){
+  editingId=id;
+  const today=`${YEAR}-${String(currentMonth+1).padStart(2,'0')}-${String(new Date().getDate()).padStart(2,'0')}`;
+  if(id){
+    const e=getEntries(currentMonth).find(x=>x.id===id);
+    document.getElementById('modalTitle').textContent='Editar Lançamento';
+    document.getElementById('fData').value=e.date;document.getElementById('fDesc').value=e.desc;
+    document.getElementById('fTipo').value=e.tipo;document.getElementById('fCat').value=e.cat;
+    document.getElementById('fValor').value=e.valor;
+  }else{
+    document.getElementById('modalTitle').textContent='Novo Lançamento';
+    document.getElementById('fData').value=today;document.getElementById('fDesc').value='';
+    document.getElementById('fTipo').value='gasto';document.getElementById('fCat').value='alimentacao';
+    document.getElementById('fValor').value='';
+  }
+  document.getElementById('modalOverlay').classList.add('open');
+  setTimeout(()=>document.getElementById('fDesc').focus(),100);
+}
+
+function closeModal(){document.getElementById('modalOverlay').classList.remove('open');editingId=null;}
+
+function saveEntry(){
+  const date=document.getElementById('fData').value;
+  const desc=document.getElementById('fDesc').value.trim();
+  const tipo=document.getElementById('fTipo').value;
+  const cat=document.getElementById('fCat').value;
+  const valor=parseFloat(document.getElementById('fValor').value);
+  if(!date||!desc||isNaN(valor)||valor<=0){showToast('Preencha todos os campos','error');return;}
+  let entries=getEntries(currentMonth);
+  if(editingId){const i=entries.findIndex(e=>e.id===editingId);if(i!==-1)entries[i]={...entries[i],date,desc,tipo,cat,valor};}
+  else entries.push({id:uid(),date,desc,tipo,cat,valor});
+  setEntries(currentMonth,entries);closeModal();render();queueSync();
+  showToast(editingId?'Atualizado ✓':'Adicionado ✓','success');
+}
+
+function openConfigModal(){
+  document.getElementById('clientIdInput').value=CLIENT_ID;
+  document.getElementById('configModal').classList.add('open');
+}
+function closeConfigModal(){document.getElementById('configModal').classList.remove('open');}
+function saveClientId(){
+  const val=document.getElementById('clientIdInput').value.trim();
+  if(!val){showToast('Cole o Client ID','error');return;}
+  CLIENT_ID=val;localStorage.setItem('vc_client_id',CLIENT_ID);
+  closeConfigModal();showToast('Client ID salvo! Clique em Entrar com Google.','success');
+}
+
+function exportCSV(){
+  const entries=getEntries(currentMonth);
+  if(!entries.length){showToast('Sem dados','error');return;}
+  const rows=entries.map(e=>`${e.date},"${e.desc}","${catMap[e.cat]?.label||e.cat}",${e.tipo},${e.valor.toFixed(2)}`);
+  const blob=new Blob(['\uFEFFData,Descrição,Categoria,Tipo,Valor\n'+rows.join('\n')],{type:'text/csv;charset=utf-8;'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download=`financas-${MONTHS[currentMonth]}-${YEAR}.csv`;a.click();
+  showToast('CSV exportado!','success');
+}
+
+function showToast(msg,type=''){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.className='toast '+type+' show';
+  setTimeout(()=>t.classList.remove('show'),2800);
+}
+
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closeConfigModal();}});
+document.getElementById('modalOverlay').addEventListener('click',e=>{if(e.target.id==='modalOverlay')closeModal();});
+document.getElementById('configModal').addEventListener('click',e=>{if(e.target.id==='configModal')closeConfigModal();});
+
+window.gapiLoaded=gapiLoaded;
+window.addEventListener('load',init);
+</script>
+
+<script src="https://apis.google.com/js/api.js?onload=gapiLoaded"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+</body>
+</html>
