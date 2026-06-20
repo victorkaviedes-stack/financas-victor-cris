@@ -403,11 +403,12 @@ function signOut() {
   showToast('Sessão encerrada', 'info');
 }
 
-async function loadFromSheet() {
+async function loadFromSheet(month) {
+  if (month === undefined) month = currentMonth;
   if (!isAuthenticated || !sheetId) return;
   setSyncStatus('syncing', 'Carregando...');
   try {
-    const tab = `${MONTHS[currentMonth]} ${YEAR}`;
+    const tab = `${MONTHS[month]} ${YEAR}`;
     const res = await gapi.client.sheets.spreadsheets.values.get({
       spreadsheetId: sheetId,
       range: `'${tab}'!A2:G1000`
@@ -418,21 +419,45 @@ async function loadFromSheet() {
       tipo: r[3]||'gasto', valor: parseFloat((r[4]||'0').replace(',','.'))||0,
       recorrente: r[6]===true||r[6]==='true'||r[6]==='TRUE'||r[6]==='Sim'
     })).filter(e=>e.date&&e.desc);
-    setEntries(currentMonth, entries);
-    render();
+    setEntries(month, entries);
+    if (month === currentMonth) render();
     setSyncStatus('synced', `Atualizado ${hm()}`);
-    showToast(`📥 ${entries.length} lançamentos`, 'success');
+    if (month === currentMonth) showToast(`📥 ${entries.length} lançamentos`, 'success');
   } catch(err) {
     const code = err.status||(err.result?.error?.code);
-    if (code===400||code===404) { await ensureSheetTab(); }
+    if (code===400||code===404) { await ensureSheetTab(month); }
     else if (code===401) { clearToken(); setSyncStatus('error','Sessão expirada'); document.getElementById('connectBanner').classList.remove('hidden'); }
-    else { setSyncStatus('error','Erro'); showToast('Erro: '+(err.result?.error?.message||String(err)),'error'); }
+    else { setSyncStatus('error','Erro'); if (month === currentMonth) showToast('Erro: '+(err.result?.error?.message||String(err)),'error'); }
   }
 }
 
-async function ensureSheetTab() {
+// Versão silenciosa usada internamente ao propagar recorrências (não mexe na tela)
+async function loadFromSheetSilent(month) {
+  if (!isAuthenticated || !sheetId) return;
+  try {
+    const tab = `${MONTHS[month]} ${YEAR}`;
+    const res = await gapi.client.sheets.spreadsheets.values.get({
+      spreadsheetId: sheetId,
+      range: `'${tab}'!A2:G1000`
+    });
+    const rows = res.result.values || [];
+    const entries = rows.filter(r=>r&&r.length>=5).map(r=>({
+      id: r[5]||uid(), date: r[0]||'', desc: r[1]||'', cat: r[2]||'outros',
+      tipo: r[3]||'gasto', valor: parseFloat((r[4]||'0').replace(',','.'))||0,
+      recorrente: r[6]===true||r[6]==='true'||r[6]==='TRUE'||r[6]==='Sim'
+    })).filter(e=>e.date&&e.desc);
+    setEntries(month, entries);
+  } catch(err) {
+    const code = err.status||(err.result?.error?.code);
+    if (code===400||code===404) { await ensureSheetTab(month); }
+    // outros erros: segue com o que já tem localmente
+  }
+}
+
+async function ensureSheetTab(month) {
+  if (month === undefined) month = currentMonth;
   if (!sheetId) return;
-  const tab = `${MONTHS[currentMonth]} ${YEAR}`;
+  const tab = `${MONTHS[month]} ${YEAR}`;
   try {
     const meta = await gapi.client.sheets.spreadsheets.get({spreadsheetId: sheetId});
     const exists = meta.result.sheets.some(s=>s.properties.title===tab);
@@ -446,17 +471,18 @@ async function ensureSheetTab() {
       spreadsheetId: sheetId, range: `'${tab}'!A1:G1`, valueInputOption:'RAW',
       resource: {values:[['Data','Descrição','Categoria','Tipo','Valor','ID','Recorrente']]}
     });
-    setSyncStatus('synced','Aba criada');
+    if (month === currentMonth) setSyncStatus('synced','Aba criada');
   } catch(e) { console.warn('ensureTab',e); }
 }
 
-async function writeEntriesToSheet() {
+async function writeEntriesToSheet(month) {
+  if (month === undefined) month = currentMonth;
   if (!isAuthenticated || !sheetId) return;
-  setSyncStatus('syncing','Salvando...');
+  if (month === currentMonth) setSyncStatus('syncing','Salvando...');
   try {
-    await ensureSheetTab();
-    const tab = `${MONTHS[currentMonth]} ${YEAR}`;
-    const entries = getEntries(currentMonth);
+    await ensureSheetTab(month);
+    const tab = `${MONTHS[month]} ${YEAR}`;
+    const entries = getEntries(month);
     const rows = entries.map(e=>[e.date,e.desc,e.cat,e.tipo,e.valor.toFixed(2),e.id,e.recorrente?'Sim':'Não']);
     await gapi.client.sheets.spreadsheets.values.clear({spreadsheetId:sheetId, range:`'${tab}'!A2:G1000`});
     if (rows.length > 0) {
@@ -464,23 +490,23 @@ async function writeEntriesToSheet() {
         spreadsheetId:sheetId, range:`'${tab}'!A2`, valueInputOption:'RAW', resource:{values:rows}
       });
     }
-    setSyncStatus('synced', `Salvo ${hm()}`);
+    if (month === currentMonth) setSyncStatus('synced', `Salvo ${hm()}`);
   } catch(err) {
     if ((err.status||(err.result?.error?.code))===401) { clearToken(); setSyncStatus('error','Sessão expirada'); }
-    else { setSyncStatus('error','Erro ao salvar'); showToast('Erro ao salvar na planilha','error'); }
+    else if (month === currentMonth) { setSyncStatus('error','Erro ao salvar'); showToast('Erro ao salvar na planilha','error'); }
   }
 }
 
 function queueSync() {
   clearTimeout(syncTimeout);
   setSyncStatus('syncing','Aguardando...');
-  syncTimeout = setTimeout(()=>writeEntriesToSheet(), 1500);
+  syncTimeout = setTimeout(()=>writeEntriesToSheet(currentMonth), 1500);
 }
 
 async function manualSync() {
   if (!isAuthenticated) { showToast('Faça login primeiro','error'); return; }
   if (!sheetId) { showToast('Nenhuma planilha configurada','error'); return; }
-  await loadFromSheet();
+  await loadFromSheet(currentMonth);
 }
 
 async function createNewSheet() {
@@ -660,7 +686,7 @@ function openModal(id=null){
 
 function closeModal(){document.getElementById('modalOverlay').classList.remove('open');editingId=null;}
 
-function saveEntry(){
+async function saveEntry(){
   const date=document.getElementById('fData').value;
   const desc=document.getElementById('fDesc').value.trim();
   const tipo=document.getElementById('fTipo').value;
@@ -678,11 +704,18 @@ function saveEntry(){
     entries.push({id:baseId,date,desc,tipo,cat,valor,recorrente});
   }
   setEntries(currentMonth,entries);
+  closeModal();render();
 
-  // Se marcado como recorrente, propaga para os meses seguintes do ano
+  // Salva o mês atual na planilha
+  await writeEntriesToSheet(currentMonth);
+
+  // Se marcado como recorrente, propaga e sincroniza cada mês futuro individualmente
   if(recorrente){
     const day=date.split('-')[2];
+    showToast('Repetindo lançamento nos próximos meses...','info');
     for(let m=currentMonth+1;m<12;m++){
+      // Garante que temos os dados mais recentes daquele mês antes de adicionar
+      await loadFromSheetSilent(m);
       const futureEntries=getEntries(m);
       const already=futureEntries.some(e=>e.id===baseId+'_r'+m);
       if(!already){
@@ -692,12 +725,13 @@ function saveEntry(){
           desc,tipo,cat,valor,recorrente:true
         });
         setEntries(m,futureEntries);
+        await writeEntriesToSheet(m);
       }
     }
+    showToast('✅ Lançamento recorrente sincronizado em todos os meses!','success');
+  } else {
+    showToast(editingId?'Atualizado ✓':'Adicionado ✓','success');
   }
-
-  closeModal();render();queueSync();
-  showToast(editingId?'Atualizado ✓':(recorrente?'Adicionado e repetido nos próximos meses ✓':'Adicionado ✓'),'success');
 }
 
 function exportCSV(){
