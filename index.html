@@ -285,17 +285,23 @@ let gapiReady = false;
 let isAuthenticated = false;
 let syncTimeout = null;
 let editingId = null;
-let sheetId = localStorage.getItem('vc_sheet_id') || '';
 
+// Planilha fixa — não precisa mais configurar
+const SHEET_ID = '15lV74o0ZJL3mkB9Gy7eSqKMvWtm8QNxwkqVOnt36xEY';
+let sheetId = SHEET_ID;
+
+// ===== TOKEN PERSISTENTE =====
+// Salva token de acesso + expiração no localStorage
 function saveToken(tokenResp) {
   const expires = Date.now() + (tokenResp.expires_in || 3599) * 1000;
   localStorage.setItem('vc_access_token', tokenResp.access_token);
   localStorage.setItem('vc_token_expires', String(expires));
 }
+// Lê token salvo se ainda válido (com 5min de margem)
 function loadToken() {
   const token = localStorage.getItem('vc_access_token');
   const expires = parseInt(localStorage.getItem('vc_token_expires') || '0');
-  if (token && Date.now() < expires - 60000) return token;
+  if (token && Date.now() < expires - 300000) return token;
   return null;
 }
 function clearToken() {
@@ -322,24 +328,28 @@ function gapiLoaded(){
 async function tryAutoLogin() {
   const savedToken = loadToken();
   if (savedToken) {
+    // Token ainda válido — entra direto sem popup
     gapi.client.setToken({ access_token: savedToken });
     isAuthenticated = true;
     onAuthenticated(false);
+    scheduleTokenRenewal();
   } else {
-    if (CLIENT_ID) {
-      initTokenClient(async (resp) => {
-        if (!resp.error) {
-          saveToken(resp);
-          gapi.client.setToken({ access_token: resp.access_token });
-          isAuthenticated = true;
-          onAuthenticated(false);
-        } else {
-          setSyncStatus('error', 'Login necessário');
-        }
-      });
-      try { tokenClient.requestAccessToken({ prompt: '' }); }
-      catch(e) { setSyncStatus('error', 'Login necessário'); }
-    }
+    // Token expirado — tenta renovar silenciosamente (sem popup)
+    setSyncStatus('syncing', 'Reconectando...');
+    initTokenClient(async (resp) => {
+      if (!resp.error) {
+        saveToken(resp);
+        gapi.client.setToken({ access_token: resp.access_token });
+        isAuthenticated = true;
+        onAuthenticated(false);
+        scheduleTokenRenewal();
+      } else {
+        // Não conseguiu renovar silenciosamente — exibe o banner de login
+        setSyncStatus('error', 'Login necessário');
+      }
+    });
+    try { tokenClient.requestAccessToken({ prompt: '' }); }
+    catch(e) { setSyncStatus('error', 'Login necessário'); }
   }
 }
 
@@ -359,36 +369,39 @@ function handleAuthClick() {
     gapi.client.setToken({ access_token: resp.access_token });
     isAuthenticated = true;
     onAuthenticated(true);
+    scheduleTokenRenewal();
   });
-  tokenClient.requestAccessToken({ prompt: 'consent' });
+  // prompt: '' tenta login sem popup se já autorizou antes
+  // prompt: 'consent' só se necessário
+  tokenClient.requestAccessToken({ prompt: '' });
 }
 
 async function onAuthenticated(showWelcome) {
   document.getElementById('connectBanner').classList.add('hidden');
   document.getElementById('signOutBtn').style.display = 'inline-flex';
   setSyncStatus('synced', 'Conectado');
-  if (showWelcome) showToast('✅ Conectado ao Google!', 'success');
-  scheduleTokenRenewal();
-  if (!sheetId) {
-    await createNewSheet();
-  } else {
-    await loadFromSheet();
-  }
+  if (showWelcome) showToast('✅ Conectado!', 'success');
+  await loadFromSheet();
 }
 
+// Agenda renovação automática do token antes de expirar
 function scheduleTokenRenewal() {
   const expires = parseInt(localStorage.getItem('vc_token_expires') || '0');
-  const msUntilRenewal = expires - Date.now() - 120000;
-  if (msUntilRenewal > 0) setTimeout(() => renewTokenSilently(), msUntilRenewal);
+  const msUntilRenewal = Math.max(0, expires - Date.now() - 300000); // 5min antes
+  setTimeout(() => renewTokenSilently(), msUntilRenewal);
 }
 
 function renewTokenSilently() {
-  if (!CLIENT_ID) return;
+  if (!CLIENT_ID || !gapiReady) return;
   initTokenClient(async (resp) => {
     if (!resp.error) {
       saveToken(resp);
       gapi.client.setToken({ access_token: resp.access_token });
-      scheduleTokenRenewal();
+      scheduleTokenRenewal(); // agenda a próxima renovação
+    } else {
+      // Falhou renovação — mostra banner para login manual
+      setSyncStatus('error', 'Reconecte');
+      document.getElementById('connectBanner').classList.remove('hidden');
     }
   });
   try { tokenClient.requestAccessToken({ prompt: '' }); } catch(e) {}
@@ -402,6 +415,7 @@ function signOut() {
   setSyncStatus('error', 'Desconectado');
   showToast('Sessão encerrada', 'info');
 }
+
 
 async function loadFromSheet(month) {
   if (month === undefined) month = currentMonth;
@@ -658,9 +672,39 @@ function updateField(id,field,value){
   e[field]=value;setEntries(currentMonth,entries);render();queueSync();
 }
 
-function deleteEntry(id){
-  setEntries(currentMonth,getEntries(currentMonth).filter(e=>e.id!==id));
-  render();queueSync();showToast('Lançamento removido','error');
+async function deleteEntry(id){
+  const entries=getEntries(currentMonth);
+  const entry=entries.find(e=>e.id===id);
+  if(!entry) return;
+
+  // Descobre o ID base (remove sufixo _rN se for uma cópia recorrente)
+  const baseId = entry.recorrente ? id.replace(/_r\d+$/,'') : id;
+  const isRecurrentSeries = entry.recorrente;
+
+  if(isRecurrentSeries){
+    const apagarTudo = confirm('Este é um lançamento recorrente.\n\nOK = excluir este e todos os meses futuros\nCancelar = excluir apenas este mês');
+    if(apagarTudo){
+      // Remove o lançamento (e suas cópias) de todos os meses, do atual em diante
+      for(let m=currentMonth;m<12;m++){
+        await loadFromSheetSilent(m);
+        const monthEntries=getEntries(m).filter(e=>{
+          const eBase = e.recorrente ? e.id.replace(/_r\d+$/,'') : e.id;
+          return eBase !== baseId;
+        });
+        setEntries(m,monthEntries);
+        await writeEntriesToSheet(m);
+      }
+      render();
+      showToast('Lançamento removido deste mês em diante','error');
+      return;
+    }
+  }
+
+  // Remove apenas deste mês
+  setEntries(currentMonth, entries.filter(e=>e.id!==id));
+  render();
+  await writeEntriesToSheet(currentMonth);
+  showToast('Lançamento removido','error');
 }
 
 function openModal(id=null){
