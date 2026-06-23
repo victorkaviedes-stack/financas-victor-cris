@@ -531,7 +531,7 @@ async function createNewSheet() {
     await gapi.client.sheets.spreadsheets.batchUpdate({spreadsheetId:sheetId,resource:{requests}});
     setSyncStatus('synced','Planilha criada!');
     showToast('✅ Planilha criada no Google Drive!','success');
-    setTimeout(()=>window.open(https://docs.google.com/spreadsheets/d/15lV74o0ZJL3mkB9Gy7eSqKMvWtm8QNxwkqVOnt36xEY/edit?usp=sharing),800);
+    setTimeout(()=>window.open(`https://docs.google.com/spreadsheets/d/${sheetId}`,'_blank'),800);
     await writeEntriesToSheet();
   } catch(err) {
     setSyncStatus('error','Erro');
