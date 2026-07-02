@@ -122,29 +122,36 @@ header{
 .btn-outline{background:transparent;color:var(--text-muted);border-color:var(--border)}
 .btn-outline:hover{border-color:var(--gold);color:var(--gold)}
 
-.table-wrap{padding:10px 16px 0;overflow-x:auto}
-table{width:100%;border-collapse:collapse;font-size:.82rem;min-width:520px}
-thead th{font-family:'Syne',sans-serif;font-size:.65rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-dim);padding:8px 10px;text-align:left;background:var(--surface);border-bottom:1px solid var(--border)}
-tbody tr{border-bottom:1px solid var(--border);transition:background .15s}
-tbody tr:hover{background:var(--surface2)}
-td{padding:10px;color:var(--text);vertical-align:middle}
-td input,td select{width:100%;background:transparent;border:none;color:var(--text);font-family:'DM Sans',sans-serif;font-size:.82rem;outline:none;cursor:pointer;padding:3px 4px;border-radius:4px;transition:background .15s}
-td input:focus,td select:focus{background:var(--surface2);border:1px solid var(--gold);cursor:text}
-td select option{background:var(--surface);color:var(--text)}
-.tag{display:inline-block;font-size:.65rem;font-weight:700;padding:3px 10px;border-radius:12px;text-transform:uppercase;letter-spacing:.06em}
-.tag.receita{background:var(--green-dim);color:var(--green);border:1px solid var(--green)}
-.tag.gasto{background:var(--red-dim);color:var(--red);border:1px solid var(--red)}
-td.amount{font-family:'Syne',sans-serif;font-weight:600;font-size:.9rem}
-td.amount input{font-family:'Syne',sans-serif;font-weight:600;font-size:.9rem}
-td.amount.receita input{color:var(--green)}
-td.amount.gasto input{color:var(--red)}
-.cat-chip{display:inline-flex;align-items:center;gap:5px;font-size:.7rem;font-weight:600;padding:3px 9px;border-radius:10px;white-space:nowrap}
-.cat-chip .dot{width:6px;height:6px;border-radius:50%}
-.del-btn{background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:1rem;padding:4px 6px;border-radius:6px;transition:all .15s;line-height:1}
+/* LISTA DE LANÇAMENTOS — CARDS */
+.lanc-list{padding:0 16px 10px;display:flex;flex-direction:column;gap:0}
+.lanc-sep{display:flex;align-items:center;gap:10px;padding:16px 0 8px;font-family:'Syne',sans-serif;font-size:.65rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-dim)}
+.lanc-sep::after{content:'';flex:1;height:1px;background:var(--border)}
+.lanc-card{display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--surface);border-radius:var(--radius);margin-bottom:8px;border:1px solid var(--border);transition:border-color .18s;position:relative}
+.lanc-card:hover{border-color:var(--border)}
+.lanc-icon{width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0}
+.lanc-body{flex:1;min-width:0}
+.lanc-desc{font-size:.88rem;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;border:none;background:transparent;width:100%;text-align:left;padding:0;font-family:'DM Sans',sans-serif}
+.lanc-desc:focus{outline:1px solid var(--gold);border-radius:4px;background:var(--surface2)}
+.lanc-meta{display:flex;align-items:center;gap:6px;margin-top:3px;flex-wrap:wrap}
+.lanc-cat{font-size:.68rem;color:var(--text-muted)}
+.lanc-date{font-size:.68rem;color:var(--text-dim)}
+.lanc-right{display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0}
+.lanc-valor{font-family:'Syne',sans-serif;font-size:.95rem;font-weight:700;cursor:pointer}
+.lanc-valor.receita{color:var(--green)}
+.lanc-valor.gasto{color:var(--red)}
+.lanc-valor-input{font-family:'Syne',sans-serif;font-size:.95rem;font-weight:700;background:var(--surface2);border:1px solid var(--gold);border-radius:6px;padding:2px 6px;color:inherit;width:90px;text-align:right;outline:none}
+.lanc-actions{display:flex;align-items:center;gap:6px}
+.pago-btn{border:1px solid var(--border);border-radius:8px;font-size:.6rem;font-weight:700;padding:3px 8px;cursor:pointer;transition:all .18s;white-space:nowrap;font-family:'DM Sans',sans-serif;color:var(--text-dim);background:none}
+.pago-btn.pago{background:var(--green-dim);border-color:var(--green);color:var(--green)}
+.pago-btn.pendente{background:var(--red-dim);border-color:var(--red);color:var(--red)}
+.del-btn{background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:.9rem;padding:4px 6px;border-radius:6px;transition:all .15s;line-height:1}
 .del-btn:hover{color:var(--red);background:var(--red-dim)}
+.recorrente-badge{display:inline-flex;align-items:center;gap:3px;font-size:.58rem;font-weight:700;padding:2px 6px;border-radius:6px;background:var(--blue-dim);color:var(--blue);border:1px solid var(--blue);white-space:nowrap}
 .empty-state{text-align:center;padding:40px 20px;color:var(--text-dim);font-size:.85rem;display:none}
 .empty-state.show{display:block}
 .empty-state .icon{font-size:2rem;margin-bottom:10px}
+/* remove estilos de tabela antigos */
+.table-wrap,.tag,.cat-chip,.sep-row{}
 
 .modal-overlay{display:none;position:fixed;inset:0;background:rgba(10,12,18,.85);backdrop-filter:blur(4px);z-index:200;align-items:center;justify-content:center;padding:20px}
 .modal-overlay.open{display:flex}
@@ -231,13 +238,8 @@ td.amount.gasto input{color:var(--red)}
 </div>
 
 <div class="section-title">Lançamentos — <span id="monthLabel" style="color:var(--gold)"></span></div>
-<div class="table-wrap">
-  <table>
-    <thead><tr><th>Data</th><th>Descrição</th><th>Categoria</th><th>Tipo</th><th>Valor</th><th>Status</th><th></th></tr></thead>
-    <tbody id="lancBody"></tbody>
-  </table>
-  <div class="empty-state" id="emptyState"><div class="icon">📋</div>Nenhum lançamento encontrado.</div>
-</div>
+<div class="lanc-list" id="lancBody"></div>
+<div class="empty-state" id="emptyState"><div class="icon">📋</div>Nenhum lançamento encontrado.</div>
 
 <!-- ADD/EDIT MODAL -->
 <div class="modal-overlay" id="modalOverlay">
@@ -669,6 +671,7 @@ function buildCatSelect(){
 }
 
 function render(){
+  catMap=getCatMap();
   const entries=getEntries(currentMonth);
   const filtered=activeFilter==='all'?entries:entries.filter(e=>e.cat===activeFilter);
   const receita=entries.filter(e=>e.tipo==='receita').reduce((s,e)=>s+e.valor,0);
@@ -682,47 +685,77 @@ function render(){
   document.getElementById('budgetPct').textContent=pct+'%';
   const fill=document.getElementById('budgetFill');
   fill.style.width=pct+'%';fill.classList.toggle('danger',pct>75);
-  const tbody=document.getElementById('lancBody');tbody.innerHTML='';
 
-  // Receitas fixas no topo, depois gastos; dentro de cada grupo, mais recente primeiro
+  const list=document.getElementById('lancBody');list.innerHTML='';
+
   const receitas=filtered.filter(e=>e.tipo==='receita').sort((a,b)=>b.date.localeCompare(a.date));
   const gastos=filtered.filter(e=>e.tipo==='gasto').sort((a,b)=>b.date.localeCompare(a.date));
 
   if(receitas.length>0){
-    const sepR=document.createElement('tr');
-    sepR.innerHTML='<td colspan="7" class="sep-row">💚 Receitas</td>';
-    tbody.appendChild(sepR);
-    receitas.forEach(e=>tbody.appendChild(buildRow(e)));
+    const sep=document.createElement('div');
+    sep.className='lanc-sep';sep.innerHTML='💚 Receitas';
+    list.appendChild(sep);
+    receitas.forEach(e=>list.appendChild(buildCard(e)));
   }
   if(gastos.length>0){
-    const sepG=document.createElement('tr');
-    sepG.innerHTML='<td colspan="7" class="sep-row">🔴 Gastos</td>';
-    tbody.appendChild(sepG);
-    gastos.forEach(e=>tbody.appendChild(buildRow(e)));
+    const sep=document.createElement('div');
+    sep.className='lanc-sep';sep.innerHTML='🔴 Gastos';
+    list.appendChild(sep);
+    gastos.forEach(e=>list.appendChild(buildCard(e)));
   }
-
   document.getElementById('emptyState').classList.toggle('show',filtered.length===0);
 }
 
-function buildRow(e){
-  const tr=document.createElement('tr');tr.dataset.id=e.id;
-  catMap=getCatMap();
-  const cat=catMap[e.cat]||catMap['outros']||{color:'#7a849c',emoji:'📌',label:e.cat};
-  const recBadge=e.recorrente?'<span class="recorrente-badge">🔁 Fixo</span>':'';
+function buildCard(e){
+  const cat=catMap[e.cat]||{color:'#7a849c',emoji:'📌',label:e.cat||'Outros'};
   const pago=!!e.pago;
   const pagoLabel=e.tipo==='receita'?(pago?'✅ Recebido':'⏳ Pendente'):(pago?'✅ Pago':'⏳ Pendente');
-  const pagoClass=pago?'pago-btn pago':'pago-btn pendente';
-  tr.innerHTML=`
-    <td><input type="date" value="${e.date}" onchange="updateField('${e.id}','date',this.value)"></td>
-    <td><input type="text" value="${esc(e.desc)}" onchange="updateField('${e.id}','desc',this.value)">${recBadge}</td>
-    <td><span class="cat-chip" style="background:${cat.color}22;color:${cat.color};border:1px solid ${cat.color}55">
-      <span class="dot" style="background:${cat.color}"></span>${cat.emoji} ${cat.label}</span></td>
-    <td><span class="tag ${e.tipo}">${e.tipo==='receita'?'Receita':'Gasto'}</span></td>
-    <td class="amount ${e.tipo}"><input type="number" value="${e.valor.toFixed(2)}" min="0" step="0.01"
-      onchange="updateField('${e.id}','valor',parseFloat(this.value)||0)"></td>
-    <td><button class="${pagoClass}" onclick="togglePago('${e.id}')">${pagoLabel}</button></td>
-    <td><button class="del-btn" onclick="deleteEntry('${e.id}')">✕</button></td>`;
-  return tr;
+  const pagoClass='pago-btn '+(pago?'pago':'pendente');
+  const recBadge=e.recorrente?'<span class="recorrente-badge">🔁</span>':'';
+  // Formata data curta: dd/mm
+  const dateParts=(e.date||'').split('-');
+  const dateShort=dateParts.length===3?`${dateParts[2]}/${dateParts[1]}`:'';
+
+  const div=document.createElement('div');
+  div.className='lanc-card';
+  div.dataset.id=e.id;
+  div.innerHTML=`
+    <div class="lanc-icon" style="background:${cat.color}22">${cat.emoji}</div>
+    <div class="lanc-body">
+      <input class="lanc-desc" type="text" value="${esc(e.desc)}"
+        onchange="updateField('${e.id}','desc',this.value)"
+        title="Clique para editar">
+      <div class="lanc-meta">
+        <span class="lanc-cat" style="color:${cat.color}">${cat.label}</span>
+        <span class="lanc-date">· ${dateShort}</span>
+        ${recBadge}
+      </div>
+    </div>
+    <div class="lanc-right">
+      <span class="lanc-valor ${e.tipo}"
+        onclick="startEditValor('${e.id}',this,${e.valor})"
+        title="Clique para editar">${fmt(e.valor)}</span>
+      <div class="lanc-actions">
+        <button class="${pagoClass}" onclick="togglePago('${e.id}')">${pagoLabel}</button>
+        <button class="del-btn" onclick="deleteEntry('${e.id}')">✕</button>
+      </div>
+    </div>`;
+  return div;
+}
+
+// Edição inline do valor ao clicar no span
+function startEditValor(id, span, currentVal){
+  const input=document.createElement('input');
+  input.className='lanc-valor-input '+(span.classList.contains('receita')?'receita':'gasto');
+  input.type='number';input.value=currentVal.toFixed(2);input.step='0.01';input.min='0';
+  span.replaceWith(input);
+  input.focus();input.select();
+  function commit(){
+    const val=parseFloat(input.value)||0;
+    updateField(id,'valor',val);
+  }
+  input.addEventListener('blur',commit);
+  input.addEventListener('keydown',e=>{if(e.key==='Enter')input.blur();if(e.key==='Escape'){input.value=currentVal;input.blur();}});
 }
 
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');}
