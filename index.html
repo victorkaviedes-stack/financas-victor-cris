@@ -167,6 +167,10 @@ td.amount.gasto input{color:var(--red)}
 .toggle input:checked+.toggle-slider{background:var(--blue)}
 .toggle input:checked+.toggle-slider:before{transform:translateX(20px)}
 .recorrente-badge{display:inline-flex;align-items:center;gap:3px;font-size:.6rem;font-weight:700;padding:2px 7px;border-radius:8px;background:var(--blue-dim);color:var(--blue);border:1px solid var(--blue);white-space:nowrap;margin-left:6px}
+.pago-btn{background:none;border:1px solid var(--border);border-radius:8px;font-size:.65rem;font-weight:700;padding:3px 8px;cursor:pointer;transition:all .18s;white-space:nowrap;font-family:'DM Sans',sans-serif;color:var(--text-dim)}
+.pago-btn.pago{background:var(--green-dim);border-color:var(--green);color:var(--green)}
+.pago-btn.pendente{background:var(--red-dim);border-color:var(--red);color:var(--red)}
+.sep-row td{background:var(--surface2);padding:5px 10px;font-family:'Syne',sans-serif;font-size:.62rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-dim);border-bottom:1px solid var(--border)}
 
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(60px);background:var(--surface2);border:1px solid var(--border);border-radius:24px;padding:10px 20px;font-size:.82rem;font-weight:500;color:var(--text);z-index:999;transition:transform .3s,opacity .3s;opacity:0;white-space:nowrap;pointer-events:none}
 .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
@@ -222,13 +226,14 @@ td.amount.gasto input{color:var(--red)}
 <div class="action-bar">
   <button class="btn btn-primary" onclick="openModal()">＋ Adicionar lançamento</button>
   <button class="btn btn-outline" onclick="manualSync()">🔄 Sincronizar</button>
+  <button class="btn btn-outline" onclick="openCatModal()">🏷️ Nova categoria</button>
   <button class="btn btn-outline" onclick="exportCSV()">📄 CSV</button>
 </div>
 
 <div class="section-title">Lançamentos — <span id="monthLabel" style="color:var(--gold)"></span></div>
 <div class="table-wrap">
   <table>
-    <thead><tr><th>Data</th><th>Descrição</th><th>Categoria</th><th>Tipo</th><th>Valor</th><th></th></tr></thead>
+    <thead><tr><th>Data</th><th>Descrição</th><th>Categoria</th><th>Tipo</th><th>Valor</th><th>Status</th><th></th></tr></thead>
     <tbody id="lancBody"></tbody>
   </table>
   <div class="empty-state" id="emptyState"><div class="icon">📋</div>Nenhum lançamento encontrado.</div>
@@ -249,9 +254,33 @@ td.amount.gasto input{color:var(--red)}
       <span>🔁 Despesa/receita recorrente (repete todo mês)</span>
       <label class="toggle"><input type="checkbox" id="fRecorrente"><span class="toggle-slider"></span></label>
     </div>
+    <div class="toggle-row">
+      <span>✅ Já foi pago/recebido</span>
+      <label class="toggle"><input type="checkbox" id="fPago"><span class="toggle-slider" style=""></span></label>
+    </div>
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
       <button class="btn btn-primary" onclick="saveEntry()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL NOVA CATEGORIA -->
+<div class="modal-overlay" id="catModal">
+  <div class="modal" style="max-width:360px">
+    <h3>🏷️ Nova Categoria</h3>
+    <div class="form-group"><label>Nome</label><input type="text" id="catName" placeholder="Ex: Academia, Pet, Investimento..."></div>
+    <div class="form-group"><label>Emoji</label><input type="text" id="catEmoji" placeholder="Ex: 💪" maxlength="2"></div>
+    <div class="form-group">
+      <label>Cor</label>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:4px" id="catColorPicker">
+        <label style="font-size:.72rem;color:var(--text-muted)">Escolha:</label>
+      </div>
+      <input type="color" id="catColor" value="#a78bfa" style="width:100%;height:40px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;margin-top:8px">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeCatModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveNewCategory()">Salvar categoria</button>
     </div>
   </div>
 </div>
@@ -263,7 +292,7 @@ const CLIENT_ID = '873611229549-qkeh31gm7ts0f7l4r6jcgc996afo6b24.apps.googleuser
 const SCOPES = 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file';
 const MONTHS = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 const YEAR = 2026;
-const CATEGORIES = [
+const DEFAULT_CATEGORIES = [
   {id:'alimentacao',label:'Alimentação',color:'#f4a261',emoji:'🍽️'},
   {id:'moradia',label:'Moradia',color:'#e9c46a',emoji:'🏠'},
   {id:'transporte',label:'Transporte',color:'#4cc9f0',emoji:'🚗'},
@@ -275,7 +304,14 @@ const CATEGORIES = [
   {id:'freelance',label:'Freelance',color:'#c9a84c',emoji:'🎹'},
   {id:'outros',label:'Outros',color:'#7a849c',emoji:'📌'},
 ];
-const catMap = Object.fromEntries(CATEGORIES.map(c=>[c.id,c]));
+function loadCategories(){
+  try{const saved=JSON.parse(localStorage.getItem('vc_cats')||'null');
+  return saved&&saved.length>0?saved:DEFAULT_CATEGORIES;}catch{return DEFAULT_CATEGORIES;}
+}
+function saveCategories(){localStorage.setItem('vc_cats',JSON.stringify(CATEGORIES));}
+let CATEGORIES = loadCategories();
+function getCatMap(){return Object.fromEntries(CATEGORIES.map(c=>[c.id,c]));}
+let catMap = getCatMap();
 
 let currentMonth = new Date().getMonth();
 let activeFilter = 'all';
@@ -425,13 +461,14 @@ async function loadFromSheet(month) {
     const tab = `${MONTHS[month]} ${YEAR}`;
     const res = await gapi.client.sheets.spreadsheets.values.get({
       spreadsheetId: sheetId,
-      range: `'${tab}'!A2:G1000`
+      range: `'${tab}'!A2:H1000`
     });
     const rows = res.result.values || [];
     const entries = rows.filter(r=>r&&r.length>=5).map(r=>({
       id: r[5]||uid(), date: r[0]||'', desc: r[1]||'', cat: r[2]||'outros',
       tipo: r[3]||'gasto', valor: parseFloat((r[4]||'0').replace(',','.'))||0,
-      recorrente: r[6]===true||r[6]==='true'||r[6]==='TRUE'||r[6]==='Sim'
+      recorrente: r[6]==='Sim'||r[6]==='true'||r[6]===true,
+      pago: r[7]==='Sim'||r[7]==='true'||r[7]===true
     })).filter(e=>e.date&&e.desc);
     setEntries(month, entries);
     if (month === currentMonth) render();
@@ -452,13 +489,14 @@ async function loadFromSheetSilent(month) {
     const tab = `${MONTHS[month]} ${YEAR}`;
     const res = await gapi.client.sheets.spreadsheets.values.get({
       spreadsheetId: sheetId,
-      range: `'${tab}'!A2:G1000`
+      range: `'${tab}'!A2:H1000`
     });
     const rows = res.result.values || [];
     const entries = rows.filter(r=>r&&r.length>=5).map(r=>({
       id: r[5]||uid(), date: r[0]||'', desc: r[1]||'', cat: r[2]||'outros',
       tipo: r[3]||'gasto', valor: parseFloat((r[4]||'0').replace(',','.'))||0,
-      recorrente: r[6]===true||r[6]==='true'||r[6]==='TRUE'||r[6]==='Sim'
+      recorrente: r[6]==='Sim'||r[6]==='true'||r[6]===true,
+      pago: r[7]==='Sim'||r[7]==='true'||r[7]===true
     })).filter(e=>e.date&&e.desc);
     setEntries(month, entries);
   } catch(err) {
@@ -483,7 +521,7 @@ async function ensureSheetTab(month) {
     }
     await gapi.client.sheets.spreadsheets.values.update({
       spreadsheetId: sheetId, range: `'${tab}'!A1:G1`, valueInputOption:'RAW',
-      resource: {values:[['Data','Descrição','Categoria','Tipo','Valor','ID','Recorrente']]}
+      resource: {values:[['Data','Descrição','Categoria','Tipo','Valor','ID','Recorrente','Pago']]}
     });
     if (month === currentMonth) setSyncStatus('synced','Aba criada');
   } catch(e) { console.warn('ensureTab',e); }
@@ -497,8 +535,8 @@ async function writeEntriesToSheet(month) {
     await ensureSheetTab(month);
     const tab = `${MONTHS[month]} ${YEAR}`;
     const entries = getEntries(month);
-    const rows = entries.map(e=>[e.date,e.desc,e.cat,e.tipo,e.valor.toFixed(2),e.id,e.recorrente?'Sim':'Não']);
-    await gapi.client.sheets.spreadsheets.values.clear({spreadsheetId:sheetId, range:`'${tab}'!A2:G1000`});
+    const rows = entries.map(e=>[e.date,e.desc,e.cat,e.tipo,e.valor.toFixed(2),e.id,e.recorrente?'Sim':'Não',e.pago?'Sim':'Não']);
+    await gapi.client.sheets.spreadsheets.values.clear({spreadsheetId:sheetId, range:`'${tab}'!A2:H1000`});
     if (rows.length > 0) {
       await gapi.client.sheets.spreadsheets.values.update({
         spreadsheetId:sheetId, range:`'${tab}'!A2`, valueInputOption:'RAW', resource:{values:rows}
@@ -615,15 +653,17 @@ function buildCatButtons(){
 }
 
 function updateCatButtons(){
+  catMap=getCatMap();
   document.querySelectorAll('.cat-btn').forEach(btn=>{
     const a=btn.dataset.cat===activeFilter;btn.classList.toggle('active',a);
     if(a){const c=btn.dataset.cat==='all'?{color:'#c9a84c'}:catMap[btn.dataset.cat];
-      btn.style.background=c.color;btn.style.borderColor=c.color;btn.style.color='#0f1117';
+      if(c){btn.style.background=c.color;btn.style.borderColor=c.color;btn.style.color='#0f1117';}
     }else{btn.style.background='';btn.style.borderColor='';btn.style.color='';}
   });
 }
 
 function buildCatSelect(){
+  catMap=getCatMap();
   const sel=document.getElementById('fCat');sel.innerHTML='';
   CATEGORIES.forEach(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=`${c.emoji} ${c.label}`;sel.appendChild(o);});
 }
@@ -643,14 +683,35 @@ function render(){
   const fill=document.getElementById('budgetFill');
   fill.style.width=pct+'%';fill.classList.toggle('danger',pct>75);
   const tbody=document.getElementById('lancBody');tbody.innerHTML='';
-  filtered.sort((a,b)=>b.date.localeCompare(a.date)).forEach(e=>tbody.appendChild(buildRow(e)));
+
+  // Receitas fixas no topo, depois gastos; dentro de cada grupo, mais recente primeiro
+  const receitas=filtered.filter(e=>e.tipo==='receita').sort((a,b)=>b.date.localeCompare(a.date));
+  const gastos=filtered.filter(e=>e.tipo==='gasto').sort((a,b)=>b.date.localeCompare(a.date));
+
+  if(receitas.length>0){
+    const sepR=document.createElement('tr');
+    sepR.innerHTML='<td colspan="7" class="sep-row">💚 Receitas</td>';
+    tbody.appendChild(sepR);
+    receitas.forEach(e=>tbody.appendChild(buildRow(e)));
+  }
+  if(gastos.length>0){
+    const sepG=document.createElement('tr');
+    sepG.innerHTML='<td colspan="7" class="sep-row">🔴 Gastos</td>';
+    tbody.appendChild(sepG);
+    gastos.forEach(e=>tbody.appendChild(buildRow(e)));
+  }
+
   document.getElementById('emptyState').classList.toggle('show',filtered.length===0);
 }
 
 function buildRow(e){
   const tr=document.createElement('tr');tr.dataset.id=e.id;
-  const cat=catMap[e.cat]||catMap['outros'];
+  catMap=getCatMap();
+  const cat=catMap[e.cat]||catMap['outros']||{color:'#7a849c',emoji:'📌',label:e.cat};
   const recBadge=e.recorrente?'<span class="recorrente-badge">🔁 Fixo</span>':'';
+  const pago=!!e.pago;
+  const pagoLabel=e.tipo==='receita'?(pago?'✅ Recebido':'⏳ Pendente'):(pago?'✅ Pago':'⏳ Pendente');
+  const pagoClass=pago?'pago-btn pago':'pago-btn pendente';
   tr.innerHTML=`
     <td><input type="date" value="${e.date}" onchange="updateField('${e.id}','date',this.value)"></td>
     <td><input type="text" value="${esc(e.desc)}" onchange="updateField('${e.id}','desc',this.value)">${recBadge}</td>
@@ -659,6 +720,7 @@ function buildRow(e){
     <td><span class="tag ${e.tipo}">${e.tipo==='receita'?'Receita':'Gasto'}</span></td>
     <td class="amount ${e.tipo}"><input type="number" value="${e.valor.toFixed(2)}" min="0" step="0.01"
       onchange="updateField('${e.id}','valor',parseFloat(this.value)||0)"></td>
+    <td><button class="${pagoClass}" onclick="togglePago('${e.id}')">${pagoLabel}</button></td>
     <td><button class="del-btn" onclick="deleteEntry('${e.id}')">✕</button></td>`;
   return tr;
 }
@@ -709,6 +771,7 @@ async function deleteEntry(id){
 
 function openModal(id=null){
   editingId=id;
+  buildCatSelect();
   const today=`${YEAR}-${String(currentMonth+1).padStart(2,'0')}-${String(new Date().getDate()).padStart(2,'0')}`;
   if(id){
     const e=getEntries(currentMonth).find(x=>x.id===id);
@@ -717,12 +780,14 @@ function openModal(id=null){
     document.getElementById('fTipo').value=e.tipo;document.getElementById('fCat').value=e.cat;
     document.getElementById('fValor').value=e.valor;
     document.getElementById('fRecorrente').checked=!!e.recorrente;
+    document.getElementById('fPago').checked=!!e.pago;
   }else{
     document.getElementById('modalTitle').textContent='Novo Lançamento';
     document.getElementById('fData').value=today;document.getElementById('fDesc').value='';
     document.getElementById('fTipo').value='gasto';document.getElementById('fCat').value='alimentacao';
     document.getElementById('fValor').value='';
     document.getElementById('fRecorrente').checked=false;
+    document.getElementById('fPago').checked=false;
   }
   document.getElementById('modalOverlay').classList.add('open');
   setTimeout(()=>document.getElementById('fDesc').focus(),100);
@@ -737,36 +802,31 @@ async function saveEntry(){
   const cat=document.getElementById('fCat').value;
   const valor=parseFloat(document.getElementById('fValor').value);
   const recorrente=document.getElementById('fRecorrente').checked;
+  const pago=document.getElementById('fPago').checked;
   if(!date||!desc||isNaN(valor)||valor<=0){showToast('Preencha todos os campos','error');return;}
   let entries=getEntries(currentMonth);
   let baseId=editingId;
   if(editingId){
     const i=entries.findIndex(e=>e.id===editingId);
-    if(i!==-1)entries[i]={...entries[i],date,desc,tipo,cat,valor,recorrente};
+    if(i!==-1)entries[i]={...entries[i],date,desc,tipo,cat,valor,recorrente,pago};
   }else{
     baseId=uid();
-    entries.push({id:baseId,date,desc,tipo,cat,valor,recorrente});
+    entries.push({id:baseId,date,desc,tipo,cat,valor,recorrente,pago});
   }
   setEntries(currentMonth,entries);
   closeModal();render();
-
-  // Salva o mês atual na planilha
   await writeEntriesToSheet(currentMonth);
-
-  // Se marcado como recorrente, propaga e sincroniza cada mês futuro individualmente
   if(recorrente){
     const day=date.split('-')[2];
     showToast('Repetindo lançamento nos próximos meses...','info');
     for(let m=currentMonth+1;m<12;m++){
-      // Garante que temos os dados mais recentes daquele mês antes de adicionar
       await loadFromSheetSilent(m);
       const futureEntries=getEntries(m);
       const already=futureEntries.some(e=>e.id===baseId+'_r'+m);
       if(!already){
-        futureEntries.push({
-          id:baseId+'_r'+m,
+        futureEntries.push({id:baseId+'_r'+m,
           date:`${YEAR}-${String(m+1).padStart(2,'0')}-${day}`,
-          desc,tipo,cat,valor,recorrente:true
+          desc,tipo,cat,valor,recorrente:true,pago:false
         });
         setEntries(m,futureEntries);
         await writeEntriesToSheet(m);
@@ -778,11 +838,48 @@ async function saveEntry(){
   }
 }
 
+// Alterna pago/pendente diretamente na linha da tabela
+function togglePago(id){
+  const entries=getEntries(currentMonth);
+  const e=entries.find(x=>x.id===id);if(!e)return;
+  e.pago=!e.pago;
+  setEntries(currentMonth,entries);
+  render();
+  queueSync();
+  showToast(e.pago?'✅ Marcado como pago':'⏳ Marcado como pendente', e.pago?'success':'info');
+}
+
+// ===== NOVA CATEGORIA =====
+function openCatModal(){
+  document.getElementById('catName').value='';
+  document.getElementById('catEmoji').value='';
+  document.getElementById('catColor').value='#a78bfa';
+  document.getElementById('catModal').classList.add('open');
+  setTimeout(()=>document.getElementById('catName').focus(),100);
+}
+function closeCatModal(){document.getElementById('catModal').classList.remove('open');}
+function saveNewCategory(){
+  const name=document.getElementById('catName').value.trim();
+  const emoji=document.getElementById('catEmoji').value.trim()||'📌';
+  const color=document.getElementById('catColor').value||'#a78bfa';
+  if(!name){showToast('Digite o nome da categoria','error');return;}
+  const id=name.toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'');
+  if(CATEGORIES.find(c=>c.id===id)){showToast('Categoria já existe','error');return;}
+  CATEGORIES.push({id,label:name,color,emoji});
+  saveCategories();
+  catMap=getCatMap();
+  buildCatButtons();
+  buildCatSelect();
+  closeCatModal();
+  showToast(`Categoria "${name}" criada!`,'success');
+}
+
 function exportCSV(){
+  catMap=getCatMap();
   const entries=getEntries(currentMonth);
   if(!entries.length){showToast('Sem dados','error');return;}
-  const rows=entries.map(e=>`${e.date},"${e.desc}","${catMap[e.cat]?.label||e.cat}",${e.tipo},${e.valor.toFixed(2)}`);
-  const blob=new Blob(['\uFEFFData,Descrição,Categoria,Tipo,Valor\n'+rows.join('\n')],{type:'text/csv;charset=utf-8;'});
+  const rows=entries.map(e=>`${e.date},"${e.desc}","${catMap[e.cat]?.label||e.cat}",${e.tipo},${e.valor.toFixed(2)},${e.pago?'Pago':'Pendente'}`);
+  const blob=new Blob(['\uFEFFData,Descrição,Categoria,Tipo,Valor,Status\n'+rows.join('\n')],{type:'text/csv;charset=utf-8;'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);
   a.download=`financas-${MONTHS[currentMonth]}-${YEAR}.csv`;a.click();
   showToast('CSV exportado!','success');
@@ -794,8 +891,11 @@ function showToast(msg,type=''){
   setTimeout(()=>t.classList.remove('show'),2800);
 }
 
-document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){closeModal();closeCatModal();}
+});
 document.getElementById('modalOverlay').addEventListener('click',e=>{if(e.target.id==='modalOverlay')closeModal();});
+document.getElementById('catModal').addEventListener('click',e=>{if(e.target.id==='catModal')closeCatModal();});
 
 window.gapiLoaded = gapiLoaded;
 window.addEventListener('load', init);
